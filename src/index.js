@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import 'bootstrap/dist/css/bootstrap.min.css';
+import '@sweetalert2/theme-bootstrap-4/bootstrap-4.css';
 import "./index.css";
 import App from "./App";
 import * as serviceWorker from "./serviceWorker";

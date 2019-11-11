@@ -1,9 +1,9 @@
 import React from "react";
 import Card from "react-bootstrap/Card";
 import Accordion from "react-bootstrap/Accordion";
-import ConnectForm from "./form_connect";
-import SubscribeForm from "./form_subscribe";
-import PublishForm from "./form_publish";
+import ConnectForm from "./ConnectForm";
+import SubscribeForm from "./SubscribeForm";
+import PublishForm from "./PublishForm";
 
 // onFormSubmit={this.onFormSubmit}
 // isConnected={this.state.isConnected}
@@ -22,7 +22,7 @@ function FormCard(props) {
   );
 }
 
-function HeaderActionCards(props) {
+export default (props) => {
   return (
     <Accordion defaultActiveKey="0" className="w-100">
       {/* Connect Form Card */}
@@ -32,7 +32,7 @@ function HeaderActionCards(props) {
         </Accordion.Toggle>
         <Accordion.Collapse eventKey="0">
           <Card.Body>
-            <ConnectForm {...props} />
+            <ConnectForm onConnectFormSubmit={props.onConnectFormSubmit} />
           </Card.Body>
         </Accordion.Collapse>
       </Card>
@@ -43,7 +43,7 @@ function HeaderActionCards(props) {
         </Accordion.Toggle>
         <Accordion.Collapse eventKey="1">
           <Card.Body>
-            <SubscribeForm {...props} />
+            <SubscribeForm onSubscribeFormSubmit={props.onSubscribeFormSubmit} />
           </Card.Body>
         </Accordion.Collapse>
       </Card>
@@ -54,12 +54,10 @@ function HeaderActionCards(props) {
         </Accordion.Toggle>
         <Accordion.Collapse eventKey="2">
           <Card.Body>
-            <PublishForm {...props} />
+            <PublishForm onPublishFormSubmit={props.onPublishFormSubmit} />
           </Card.Body>
         </Accordion.Collapse>
       </Card>
     </Accordion>
   );
-}
-
-export { HeaderActionCards };
+};

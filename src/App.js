@@ -1,30 +1,35 @@
 import React from "react";
 import mqtt from "mqtt";
-import Moment from "react-moment";
 import store from "./utils/store";
-import fake from "./utils/fake";
 import { isIterable, isString } from "./utils/utils";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
-import ListGroup from "react-bootstrap/ListGroup";
-import Media from "react-bootstrap/Media";
-import Badge from "react-bootstrap/Badge";
 import moment from "moment";
-import { HeaderActionCards } from "./components/action_cards";
+import AppContext from "./context/AppContext";
+import MessageList from "./components/MessageList";
+import HeaderActions from "./components/HeaderActions";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
-const DEFAULT_OPTIONS = {
+const MQTT_OPTIONS = {
   host: "ws://test.mosquitto.org:8080",
   username: null,
   password: null
 };
 
-class App extends React.Component {
+const MySwal = withReactContent(Swal);
+// https://www.npmjs.com/package/sweetalert2
+// eslint-disable-next-line no-unused-vars
+const showAlert = (title, message, error) => {
+  MySwal.fire(title, message, error);
+};
+
+export default class App extends React.Component {
   constructor(props) {
     super(props);
-    const options = store.storeGet("options") || DEFAULT_OPTIONS;
-    const messages = (options && store.storeGet(options + "_messages")) || fake.messages || [];
-    console.log("constructor", options, (messages && messages.length) || 0);
+    const options = store.storeGet("options") || MQTT_OPTIONS;
+    const messages = (options && store.storeGet(options + "_messages")) || [];
     this.state = {
       isConnected: false,
       options: options,
@@ -33,66 +38,32 @@ class App extends React.Component {
     };
   }
 
-  renderNewBadge = (index) => {
-    return index === 0 ? (
-      <Badge pill variant="danger">
-        New!
-      </Badge>
-    ) : null;
-  };
-
-  renderCreatedAt = (ts) => {
-    return ts ? (
-      <small>
-        <Moment format="YYYY/MM/DD HH:mm:ss">{ts}</Moment>{" "}
-      </small>
-    ) : null;
-  };
-
-  renderItems = () => {
-    const items = this.state.messages;
-    const listItems = items.map((item, index) => (
-      <React.Fragment key={"item_" + index}>
-        <ListGroup.Item>
-          <Media>
-            <Media.Body>
-              <strong className="text-primary">{item.topic}: </strong>
-              <span className="text-secondary">{item.message}</span>
-              <small className="pl-2">({items.length - index})</small>
-              <span className="pl-2">{this.renderCreatedAt(item.ts)}</span>
-              <span className="pl-2">{this.renderNewBadge(index)}</span>
-            </Media.Body>
-          </Media>
-        </ListGroup.Item>
-      </React.Fragment>
-    ));
-    return <ListGroup variant="flush">{listItems}</ListGroup>;
-  };
-
   render() {
     return (
-      <Container>
-        <Row className="justify-content-center">
-          <h1 className="p-3" as={Col}>MQTT Monitor</h1>
-        </Row>
-        <Row>
-          <HeaderActionCards
-            onConnectFormSubmit={this.onConnectFormSubmit}
-            onSubscribeFormSubmit={this.onSubscribeFormSubmit}
-            onPublishFormSubmit={this.onPublishFormSubmit}
-            isConnected={this.state.isConnected}
-            options={this.state.options}
-            topics={this.state.topics}
-          />
-        </Row>
-        {/* <Row></Row> */}
-        <Row>
-          <Col className="mt-3">
-            <h3>Received Messages</h3>
-          </Col>
-        </Row>
-        <Row>{this.renderItems()}</Row>
-      </Container>
+      <AppContext.Provider value={this.state}>
+        <Container>
+          <Row className="justify-content-center">
+            <h1 className="p-3" as={Col}>
+              MQTT Monitor
+            </h1>
+          </Row>
+          <Row>
+            <HeaderActions
+              onConnectFormSubmit={this.onConnectFormSubmit}
+              onSubscribeFormSubmit={this.onSubscribeFormSubmit}
+              onPublishFormSubmit={this.onPublishFormSubmit}
+            />
+          </Row>
+          <Row>
+            <Col className="mt-3">
+              <h3>Received Messages</h3>
+            </Col>
+          </Row>
+          <Row>
+            <MessageList />
+          </Row>
+        </Container>
+      </AppContext.Provider>
     );
   }
 
@@ -141,47 +112,45 @@ class App extends React.Component {
     return topics.map((it) => it.trim()).filter(Boolean);
   }
 
-  publish(topic, message, callback = null) {
-    console.log("publish ", topic, message);
+  publish(topic, message, callback) {
+    console.log("publish", topic, message);
     this.client.publish(topic, message, (err) => {
       if (!err) {
-        console.log("published: ", topic, message);
+        console.log("published:", topic, message);
       } else {
-        console.log("publish fail: ", err);
+        console.log("publish fail:", err);
       }
       callback && callback(err);
     });
   }
 
-  unsubscribe(inTopics, callback = null) {
+  unsubscribe(inTopics, callback) {
     const topics = this.cleanTopics(inTopics);
-    console.log("unsubscribe current ", this.state.topics);
-    console.log("unsubscribe target ", topics);
+    console.log("unsubscribe to", topics);
     this.client.unsubscribe(topics, (err) => {
       if (!err) {
-        console.log("unsubscribed: ", topics);
+        console.log("unsubscribed to", topics);
         const newTopics = this.state.topics;
         topics.forEach((el) => {
           newTopics.delete(el);
         });
         this.setState({ topics: newTopics });
       } else {
-        console.error("unsubscribe fail: ", err);
+        console.error("unsubscribe fail:", err);
       }
       callback && callback(err);
     });
   }
 
-  subscribe(inTopics, callback = null) {
+  subscribe(inTopics, callback) {
     const topics = this.cleanTopics(inTopics);
-    console.log("subscribe current ", this.state.topics);
-    console.log("subscribe target ", topics);
+    console.log("subscribe to", topics);
     this.client.subscribe(topics, (err, granted) => {
       if (!err) {
-        console.log("subscribed: ", granted);
+        console.log("subscribed to", granted);
         this.setState({ topics: new Set([...topics, ...this.state.topics]) });
       } else {
-        console.error("subscribe fail: ", err);
+        console.error("subscribe fail:", err);
       }
       callback && callback(err, granted);
     });
@@ -192,12 +161,13 @@ class App extends React.Component {
   }
 
   connect(opts) {
-    console.log("connect with ", opts);
-    this.client = mqtt.connect(opts.host, opts);
+    const connectOpts = { ...opts, reconnectPeriod: 5000 };
+    console.log("connecting with", connectOpts);
+    this.client = mqtt.connect(opts.host, connectOpts);
     this.client.on("connect", () => {
-      console.log("connected");
-      store.storeSet("options", opts);
-      this.setState({ isConnected: this.client.connected, options: opts });
+      console.log("connected to", connectOpts.host);
+      store.storeSet("options", connectOpts);
+      this.setState({ isConnected: this.client.connected, options: connectOpts });
       this.subscribe("pump/# monitor/#", (err) => {
         if (!err) {
           const now = moment().format("YYYY/MM/DD HH:mm:ss");
@@ -209,12 +179,18 @@ class App extends React.Component {
       console.log("disconnect");
       this.setState({ isConnected: this.client.connected });
     });
+    this.client.on("reconnect", () => {
+      console.log("reconnect");
+    });
+    this.client.on("offline", () => {
+      console.log("offline");
+    });
     this.client.on("close", () => {
       console.log("close");
       this.setState({ isConnected: this.client.connected });
     });
     this.client.on("error", (err) => {
-      console.log("error:" + err);
+      console.log("Ooops", "Something is wrong!", err);
       this.setState({ isConnected: this.client.connected });
     });
     this.client.on("message", (topic, message, packet) => {
@@ -223,6 +199,7 @@ class App extends React.Component {
           messages: [{ ts: new Date(), topic: topic, message: message.toString() }, ...this.state.messages]
         },
         () => {
+          store.storeSet(this.state.options + "_messages", this.state.messages);
           console.log("total messages count: " + this.state.messages.length);
         }
       );
@@ -236,7 +213,6 @@ class App extends React.Component {
 
   componentDidMount() {
     console.log("componentDidMount", this.state.options);
-    // this.checkConnect();
   }
 
   componentWillUnmount() {
@@ -247,5 +223,3 @@ class App extends React.Component {
     store.storeSet(this.state.options + "_messages", this.state.messages);
   }
 }
-
-export default App;
