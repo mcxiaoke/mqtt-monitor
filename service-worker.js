@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
 importScripts(
-  "/mqtt-monitor/precache-manifest.605ef35952fcbd5b1a63fdead9c353b6.js"
+  "/mqtt-monitor/precache-manifest.e6ba324ac01fee7417a9d848df1ee46d.js"
 );
 
 self.addEventListener('message', (event) => {
