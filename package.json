@@ -4,6 +4,8 @@
   "private": true,
   "homepage": "https://blog.mcxiaoke.com/mqtt-monitor",
   "dependencies": {
+    "@material-ui/core": "^4.6.0",
+    "@material-ui/icons": "^4.5.1",
     "@sweetalert2/theme-bootstrap-4": "^3.0.1",
     "axios": "^0.19.0",
     "bootstrap": "^4.3.1",
@@ -25,6 +27,7 @@
     "react-router": "^5.1.2",
     "react-router-dom": "^5.1.2",
     "react-scripts": "^3.2.0",
+    "react-timeout": "^1.2.0",
     "react-window": "^1.8.5",
     "redux": "^4.0.4",
     "sweetalert2": "^9.3.0",

@@ -1,7 +1,7 @@
 import React from "react";
 import mqtt from "mqtt";
 import store from "./utils/store";
-import { isIterable, isString } from "./utils/utils";
+import { isIterable, isString, toastInfo, toastError } from "./utils/utils";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
@@ -9,20 +9,11 @@ import moment from "moment";
 import AppContext from "./context/AppContext";
 import MessageList from "./components/MessageList";
 import HeaderActions from "./components/HeaderActions";
-import Swal from "sweetalert2";
-import withReactContent from "sweetalert2-react-content";
 
 const MQTT_OPTIONS = {
   host: "ws://test.mosquitto.org:8080",
   username: null,
   password: null
-};
-
-const MySwal = withReactContent(Swal);
-// https://www.npmjs.com/package/sweetalert2
-// eslint-disable-next-line no-unused-vars
-const showAlert = (title, message, error) => {
-  MySwal.fire(title, message, error);
 };
 
 export default class App extends React.Component {
@@ -32,6 +23,7 @@ export default class App extends React.Component {
     const messages = (options && store.storeGet(options + "_messages")) || [];
     this.state = {
       isConnected: false,
+      needReconnect: false,
       options: options,
       topics: new Set(),
       messages: messages
@@ -97,6 +89,10 @@ export default class App extends React.Component {
   onPublishFormSubmit = (options) => {
     console.log("onPublishFormFormSubmit ", options);
     const { topic, message } = options;
+    if (topic.includes("#") || topic.includes("*")) {
+      toastError("Invalid Topics", "Can not publish to wildcard topics");
+      return;
+    }
     if (this.state.isConnected && topic && message) {
       this.publish(topic, message, options.callback);
     }
@@ -117,6 +113,7 @@ export default class App extends React.Component {
     this.client.publish(topic, message, (err) => {
       if (!err) {
         console.log("published:", topic, message);
+        toastInfo("Message Sent", "message is sent to " + topic);
       } else {
         console.log("publish fail:", err);
       }
@@ -145,33 +142,39 @@ export default class App extends React.Component {
   subscribe(inTopics, callback) {
     const topics = this.cleanTopics(inTopics);
     console.log("subscribe to", topics);
-    this.client.subscribe(topics, (err, granted) => {
+    this.client.subscribe(topics, null, (err, granted) => {
       if (!err) {
         console.log("subscribed to", granted);
         this.setState({ topics: new Set([...topics, ...this.state.topics]) });
+        toastInfo("Subscribe Success", "subscribed topics: " + topics);
       } else {
         console.error("subscribe fail:", err);
+        toastError("Subscribe Failed", err);
       }
       callback && callback(err, granted);
     });
   }
 
   disconnect() {
-    this.state.isConnected && this.client.end();
+    this.state.isConnected &&
+      this.client.end(() => {
+        console.log("disconnect end");
+      });
   }
 
   connect(opts) {
-    const connectOpts = { ...opts, reconnectPeriod: 5000 };
+    const connectOpts = { ...opts, reconnectPeriod: 0 };
     console.log("connecting with", connectOpts);
     this.client = mqtt.connect(opts.host, connectOpts);
     this.client.on("connect", () => {
       console.log("connected to", connectOpts.host);
       store.storeSet("options", connectOpts);
       this.setState({ isConnected: this.client.connected, options: connectOpts });
+      toastInfo("MQTT Connected!", "server is " + connectOpts.host);
       this.subscribe("pump/# monitor/#", (err) => {
         if (!err) {
           const now = moment().format("YYYY/MM/DD HH:mm:ss");
-          this.client.publish("monitor/log", `Hello, MQTT Monitor is online at ${now}!`);
+          this.client.publish("monitor/log", `Monitor online at ${now}!`);
         }
       });
     });
@@ -193,7 +196,12 @@ export default class App extends React.Component {
       console.log("Ooops", "Something is wrong!", err);
       this.setState({ isConnected: this.client.connected });
     });
-    this.client.on("message", (topic, message, packet) => {
+    this.client.stream.on("error", (err) => {
+      console.error("Connection error:", err);
+      toastError("Connection Error!", "Failed to connect to " + connectOpts.host);
+    });
+    this.client.on("message", (topic, message) => {
+    //   toastInfo("New Message", message.toString() + " (" + topic + ")");
       this.setState(
         {
           messages: [{ ts: new Date(), topic: topic, message: message.toString() }, ...this.state.messages]
@@ -213,6 +221,12 @@ export default class App extends React.Component {
 
   componentDidMount() {
     console.log("componentDidMount", this.state.options);
+  }
+
+  componentDidUpdate() {
+    if (this.state.needReconnect) {
+      this.checkConnect();
+    }
   }
 
   componentWillUnmount() {
