@@ -14,6 +14,7 @@
     "lodash": "^4.17.15",
     "moment": "^2.24.0",
     "mqtt": "^3.0.0",
+    "paho-mqtt": "^1.1.0",
     "popper.js": "^1.16.0",
     "react": "^16.11.0",
     "react-alert": "^6.0.0",

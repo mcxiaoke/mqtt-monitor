@@ -5,12 +5,14 @@ import Media from "react-bootstrap/Media";
 import Badge from "react-bootstrap/Badge";
 import AppContext from "../context/AppContext";
 
-const CreatedAt = (ts) => {
-  return ts ? (
+const CreatedAt = ({ ts }) => {
+  return (
     <small>
-      <Moment format="YYYY/MM/DD HH:mm:ss">{ts}</Moment>{" "}
+      <Moment format="YYYY-MM-DD HH:mm:ss" unix>
+        {ts}
+      </Moment>{" "}
     </small>
-  ) : null;
+  );
 };
 
 const NewBadge = (index) => {

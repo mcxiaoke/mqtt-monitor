@@ -1,6 +1,6 @@
 import React from "react";
 import mqtt from "mqtt";
-import store from "./utils/store";
+import * as store from "./utils/store";
 import { isIterable, isString, toastInfo, toastError } from "./utils/utils";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
@@ -9,6 +9,7 @@ import moment from "moment";
 import AppContext from "./context/AppContext";
 import MessageList from "./components/MessageList";
 import HeaderActions from "./components/HeaderActions";
+import Button from "react-bootstrap/Button";
 
 const MQTT_OPTIONS = {
   host: "ws://test.mosquitto.org:8080",
@@ -20,17 +21,18 @@ export default class App extends React.Component {
   constructor(props) {
     super(props);
     const options = store.storeGet("options") || MQTT_OPTIONS;
-    const messages = (options && store.storeGet(options + "_messages")) || [];
     this.state = {
       isConnected: false,
       needReconnect: false,
       options: options,
       topics: new Set(),
-      messages: messages
+      messages: []
     };
   }
 
   render() {
+    const { messages } = this.state;
+    const showClearButton = messages && messages.length > 0;
     return (
       <AppContext.Provider value={this.state}>
         <Container>
@@ -46,18 +48,29 @@ export default class App extends React.Component {
               onPublishFormSubmit={this.onPublishFormSubmit}
             />
           </Row>
-          <Row>
-            <Col className="mt-3">
-              <h3>Received Messages</h3>
-            </Col>
+          <Row className="m-3">
+            <h3 as={Col}>Received Messages</h3>
           </Row>
           <Row>
             <MessageList />
+          </Row>
+          <Row className="justify-content-end p-3">
+            {showClearButton ? (
+              <Button as={Col} md={3} lg={2} onClick={this.onClearClick} variant="outline-dark">
+                Clear Messages
+              </Button>
+            ) : null}
           </Row>
         </Container>
       </AppContext.Provider>
     );
   }
+
+  onClearClick = () => {
+    this.setState({ messages: [] }, () => {
+      store.deleteMessages(this.state.options.host);
+    });
+  };
 
   onConnectFormSubmit = (options) => {
     console.log("onConnectFormSubmit ", options);
@@ -162,21 +175,33 @@ export default class App extends React.Component {
       });
   }
 
+  onConnected(opts) {
+    console.log("connected to", opts);
+    toastInfo("MQTT Connected!", "server is " + opts.host);
+    store.storeSet("options", opts);
+    this.setState(
+      {
+        isConnected: this.client.connected,
+        options: opts,
+        messages: store.loadMessages(opts.host)
+      },
+      () => {
+        this.subscribe("pump/# monitor/#", (err) => {
+          if (!err) {
+            const now = moment().format("YYYY-MM-DD HH:mm:ss");
+            this.client.publish("monitor/log", `Monitor online at ${now}!`);
+          }
+        });
+      }
+    );
+  }
+
   connect(opts) {
     const connectOpts = { ...opts, reconnectPeriod: 0 };
     console.log("connecting with", connectOpts);
     this.client = mqtt.connect(opts.host, connectOpts);
     this.client.on("connect", () => {
-      console.log("connected to", connectOpts.host);
-      store.storeSet("options", connectOpts);
-      this.setState({ isConnected: this.client.connected, options: connectOpts });
-      toastInfo("MQTT Connected!", "server is " + connectOpts.host);
-      this.subscribe("pump/# monitor/#", (err) => {
-        if (!err) {
-          const now = moment().format("YYYY/MM/DD HH:mm:ss");
-          this.client.publish("monitor/log", `Monitor online at ${now}!`);
-        }
-      });
+      this.onConnected(connectOpts);
     });
     this.client.on("disconnect", () => {
       console.log("disconnect");
@@ -201,13 +226,16 @@ export default class App extends React.Component {
       toastError("Connection Error!", "Failed to connect to " + connectOpts.host);
     });
     this.client.on("message", (topic, message) => {
-    //   toastInfo("New Message", message.toString() + " (" + topic + ")");
+      //   toastInfo("New Message", message.toString() + " (" + topic + ")");
       this.setState(
         {
-          messages: [{ ts: new Date(), topic: topic, message: message.toString() }, ...this.state.messages]
+          messages: [
+            { ts: Math.round(Date.now() / 1000), topic: topic, message: message.toString() },
+            ...this.state.messages
+          ]
         },
         () => {
-          store.storeSet(this.state.options + "_messages", this.state.messages);
+          store.saveMessages(this.state.options.host, this.state.messages);
           console.log("total messages count: " + this.state.messages.length);
         }
       );
@@ -234,6 +262,6 @@ export default class App extends React.Component {
     if (this.state.isConnected) {
       store.storeSet("options", this.state.options);
     }
-    store.storeSet(this.state.options + "_messages", this.state.messages);
+    store.saveMessages(this.state.options.host, this.state.messages);
   }
 }
