@@ -10,7 +10,7 @@ export const toastInfo = (title, message, timeout) => {
     title: title,
     text: message,
     toast: true,
-    position: "top",
+    position: "bottom",
     timer: timeout || 3000
   });
 };
@@ -21,7 +21,7 @@ export const toastError = (title, message, timeout) => {
     title: title,
     text: message,
     toast: true,
-    position: "top",
+    position: "center",
     timer: timeout || 5000
   });
 };

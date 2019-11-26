@@ -15,7 +15,7 @@ const CreatedAt = ({ ts }) => {
   );
 };
 
-const NewBadge = (index) => {
+const NewBadge = index => {
   return index === 0 ? (
     <Badge pill variant="danger">
       New!
@@ -24,6 +24,14 @@ const NewBadge = (index) => {
 };
 
 const MessageItem = ({ item, index, length }) => {
+  //   const message = item.message.split("\n").map((i, k) => {
+  //     return (
+  //       <span key={k}>
+  //         {i}
+  //         <br />
+  //       </span>
+  //     );
+  //   });
   return (
     <ListGroup.Item>
       <Media>
@@ -43,7 +51,7 @@ const MessageItem = ({ item, index, length }) => {
   );
 };
 
-export default (props) => {
+export default props => {
   const { messages } = useContext(AppContext);
   const listItems = messages.map((item, index) => (
     <React.Fragment key={"item_" + index}>

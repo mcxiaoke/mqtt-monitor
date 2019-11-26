@@ -17,13 +17,15 @@ const MQTT_OPTIONS = {
   password: null
 };
 
+const DEFAULT_TOPICS = new Set(["pump/#", "monitor/#", "device/#"]);
+
 export default class App extends React.Component {
   constructor(props) {
     super(props);
     const options = store.storeGet("options") || MQTT_OPTIONS;
     this.state = {
       isConnected: false,
-      needReconnect: false,
+      needReconnect: true,
       options: options,
       topics: new Set(),
       messages: []
@@ -31,15 +33,16 @@ export default class App extends React.Component {
   }
 
   render() {
-    const { messages } = this.state;
+    const { messages, isConnected } = this.state;
     const showClearButton = messages && messages.length > 0;
+    const clsNames = isConnected ? "p-2 text-primary" : "p-2 text-secondary";
     return (
       <AppContext.Provider value={this.state}>
         <Container>
           <Row className="justify-content-center">
-            <h1 className="p-3" as={Col}>
+            <h2 className={clsNames} as={Col}>
               MQTT Monitor
-            </h1>
+            </h2>
           </Row>
           <Row>
             <HeaderActions
@@ -49,14 +52,20 @@ export default class App extends React.Component {
             />
           </Row>
           <Row className="m-3">
-            <h3 as={Col}>Received Messages</h3>
+            <h4 as={Col}>Received Messages</h4>
           </Row>
           <Row>
             <MessageList />
           </Row>
           <Row className="justify-content-end p-3">
             {showClearButton ? (
-              <Button as={Col} md={3} lg={2} onClick={this.onClearClick} variant="outline-dark">
+              <Button
+                as={Col}
+                md={3}
+                lg={2}
+                onClick={this.onClearClick}
+                variant="outline-dark"
+              >
                 Clear Messages
               </Button>
             ) : null}
@@ -67,12 +76,10 @@ export default class App extends React.Component {
   }
 
   onClearClick = () => {
-    this.setState({ messages: [] }, () => {
-      store.deleteMessages(this.state.options.host);
-    });
+    this.setState({ messages: [] });
   };
 
-  onConnectFormSubmit = (options) => {
+  onConnectFormSubmit = options => {
     console.log("onConnectFormSubmit ", options);
     if (this.state.isConnected) {
       this.client.end();
@@ -86,7 +93,7 @@ export default class App extends React.Component {
     }
   };
 
-  onSubscribeFormSubmit = (options) => {
+  onSubscribeFormSubmit = options => {
     console.log("onSubscribeFormSubmit ", options);
     const { subscribe, topics } = options;
     if (this.state.isConnected && topics) {
@@ -99,7 +106,7 @@ export default class App extends React.Component {
     }
   };
 
-  onPublishFormSubmit = (options) => {
+  onPublishFormSubmit = options => {
     console.log("onPublishFormFormSubmit ", options);
     const { topic, message } = options;
     if (topic.includes("#") || topic.includes("*")) {
@@ -117,13 +124,15 @@ export default class App extends React.Component {
       topics = inTopics.split(" ");
     } else if (isIterable(inTopics)) {
       topics = inTopics;
+    } else {
+      topics = inTopics;
     }
-    return topics.map((it) => it.trim()).filter(Boolean);
+    return [...topics].map(it => it.trim()).filter(Boolean);
   }
 
   publish(topic, message, callback) {
     console.log("publish", topic, message);
-    this.client.publish(topic, message, (err) => {
+    this.client.publish(topic, message, err => {
       if (!err) {
         console.log("published:", topic, message);
         toastInfo("Message Sent", "message is sent to " + topic);
@@ -137,11 +146,11 @@ export default class App extends React.Component {
   unsubscribe(inTopics, callback) {
     const topics = this.cleanTopics(inTopics);
     console.log("unsubscribe to", topics);
-    this.client.unsubscribe(topics, (err) => {
+    this.client.unsubscribe(topics, err => {
       if (!err) {
         console.log("unsubscribed to", topics);
         const newTopics = this.state.topics;
-        topics.forEach((el) => {
+        topics.forEach(el => {
           newTopics.delete(el);
         });
         this.setState({ topics: newTopics });
@@ -183,10 +192,16 @@ export default class App extends React.Component {
       {
         isConnected: this.client.connected,
         options: opts,
-        messages: store.loadMessages(opts.host)
+        messages: []
       },
       () => {
-        this.subscribe("pump/# monitor/#", (err) => {
+        let topics;
+        if (this.state.topics && this.state.topics.length > 0) {
+          topics = this.state.topics;
+        } else {
+          topics = DEFAULT_TOPICS;
+        }
+        this.subscribe(topics, err => {
           if (!err) {
             const now = moment().format("YYYY-MM-DD HH:mm:ss");
             this.client.publish("monitor/log", `Monitor online at ${now}!`);
@@ -197,7 +212,7 @@ export default class App extends React.Component {
   }
 
   connect(opts) {
-    const connectOpts = { ...opts, reconnectPeriod: 0 };
+    const connectOpts = { ...opts, reconnectPeriod: 60 };
     console.log("connecting with", connectOpts);
     this.client = mqtt.connect(opts.host, connectOpts);
     this.client.on("connect", () => {
@@ -206,6 +221,10 @@ export default class App extends React.Component {
     this.client.on("disconnect", () => {
       console.log("disconnect");
       this.setState({ isConnected: this.client.connected });
+      toastError(
+        "Connection Lost!",
+        "Lost connection from " + connectOpts.host
+      );
     });
     this.client.on("reconnect", () => {
       console.log("reconnect");
@@ -217,28 +236,29 @@ export default class App extends React.Component {
       console.log("close");
       this.setState({ isConnected: this.client.connected });
     });
-    this.client.on("error", (err) => {
+    this.client.on("error", err => {
       console.log("Ooops", "Something is wrong!", err);
       this.setState({ isConnected: this.client.connected });
     });
-    this.client.stream.on("error", (err) => {
+    this.client.stream.on("error", err => {
       console.error("Connection error:", err);
-      toastError("Connection Error!", "Failed to connect to " + connectOpts.host);
+      toastError(
+        "Connection Error!",
+        "Failed to connect to " + connectOpts.host
+      );
     });
     this.client.on("message", (topic, message) => {
       //   toastInfo("New Message", message.toString() + " (" + topic + ")");
-      this.setState(
-        {
-          messages: [
-            { ts: Math.round(Date.now() / 1000), topic: topic, message: message.toString() },
-            ...this.state.messages
-          ]
-        },
-        () => {
-          store.saveMessages(this.state.options.host, this.state.messages);
-          console.log("total messages count: " + this.state.messages.length);
-        }
-      );
+      this.setState({
+        messages: [
+          {
+            ts: Math.round(Date.now() / 1000),
+            topic: topic,
+            message: message.toString()
+          },
+          ...this.state.messages
+        ]
+      });
     });
   }
 
@@ -251,17 +271,11 @@ export default class App extends React.Component {
     console.log("componentDidMount", this.state.options);
   }
 
-  componentDidUpdate() {
-    if (this.state.needReconnect) {
-      this.checkConnect();
-    }
-  }
-
   componentWillUnmount() {
     console.log("componentWillUnmount");
     if (this.state.isConnected) {
       store.storeSet("options", this.state.options);
     }
-    store.saveMessages(this.state.options.host, this.state.messages);
+    // store.saveMessages(this.state.options.host, this.state.messages);
   }
 }

@@ -5,6 +5,7 @@
 /.pnp
 .pnp.js
 fake.js
+.history
 
 # testing
 /coverage
