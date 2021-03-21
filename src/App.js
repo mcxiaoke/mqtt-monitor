@@ -17,7 +17,7 @@ const MQTT_OPTIONS = {
   password: null
 };
 
-const DEFAULT_TOPICS = new Set(["pump/#", "monitor/#", "device/#"]);
+const DEFAULT_TOPICS = new Set(["test/#", "monitor/#", "device/#"]);
 
 export default class App extends React.Component {
   constructor(props) {
@@ -41,7 +41,7 @@ export default class App extends React.Component {
         <Container>
           <Row className="justify-content-center">
             <h2 className={clsNames} as={Col}>
-              MQTT Monitor
+              MQTT Web Client
             </h2>
           </Row>
           <Row>
@@ -204,7 +204,7 @@ export default class App extends React.Component {
         this.subscribe(topics, err => {
           if (!err) {
             const now = moment().format("YYYY-MM-DD HH:mm:ss");
-            this.client.publish("monitor/log", `Monitor online at ${now}!`);
+            this.client.publish("device/online", `Web Monitor online at ${now}!`);
           }
         });
       }
@@ -212,7 +212,8 @@ export default class App extends React.Component {
   }
 
   connect(opts) {
-    const connectOpts = { ...opts, reconnectPeriod: 60 };
+    let dateStr = new Date().toJSON().slice(0, 10).replaceAll('-', '');
+    const connectOpts = { ...opts, reconnectPeriod: 120 * 1000, clientId: 'web_monitor_' + dateStr };
     console.log("connecting with", connectOpts);
     this.client = mqtt.connect(opts.host, connectOpts);
     this.client.on("connect", () => {

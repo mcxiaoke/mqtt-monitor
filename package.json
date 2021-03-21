@@ -1,6 +1,6 @@
 {
   "name": "mqtt-monitor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "homepage": ".",
   "dependencies": {
@@ -42,7 +42,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
     "prersync": "npm run build",
-    "rsync": "rsync -ravz build root@192.168.1.111:/var/www/html/",
+    "rsync": "rsync -ravz build /tmp/html/",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",

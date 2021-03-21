@@ -20,7 +20,7 @@ function isValidURL(str) {
 
 const getClientId = () => {
   return (
-    "mmon_" +
+    "web_monitor_" +
     Math.random()
       .toString(16)
       .substr(2, 8)
@@ -58,11 +58,11 @@ const Client = (serverUrl, options, onConnected2, onDisconnected, onMessageRecei
       onFailure: (res) => {
         console.log("connect failure", res);
       },
-      timeout:5000,
-      userName:"",
-      password:"",
-      willMessage:null,
-      cleanSession:false,
+      timeout: 5000,
+      userName: "",
+      password: "",
+      willMessage: null,
+      cleanSession: false,
       reconnect: true,
       mqttVersion: 4
     });
@@ -72,7 +72,7 @@ const Client = (serverUrl, options, onConnected2, onDisconnected, onMessageRecei
     client.disconnect();
   };
 
-  const reconnect = () => {};
+  const reconnect = () => { };
 
   const subscribe = (topics, callback) => {
     client.subscribe(topics, {
@@ -90,16 +90,16 @@ const Client = (serverUrl, options, onConnected2, onDisconnected, onMessageRecei
 
   const unsubscribe = (topics, callback) => {
     client.unsubscribe(topics, {
-        onSuccess: (res) => {
-          console.log("unsubscribe success");
-          client.subscribe("monitor/#");
-        },
-        onFailure: (res) => {
-          console.log("unsubscribe failure", res);
-        },
-        qos: 0
-        //   timeout: 3000
-      });
+      onSuccess: (res) => {
+        console.log("unsubscribe success");
+        client.subscribe("monitor/#");
+      },
+      onFailure: (res) => {
+        console.log("unsubscribe failure", res);
+      },
+      qos: 0
+      //   timeout: 3000
+    });
   };
 
   const publish = (topic, message, callback) => {
